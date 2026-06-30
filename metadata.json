@@ -1,0 +1,6 @@
+{
+  "name": "Gestión de Agua Potable y Alcantarillado",
+  "description": "Sistema central de control de agua potable y alcantarillado, incluyendo tickets de servicio, reportes de pozos contra consumo y simulador de PWA móvil para lecturas de medidores con QR y NFC.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
