@@ -15,6 +15,7 @@ export interface Cliente {
   categoria: 'Residencial' | 'Comercial' | 'Industrial';
   alertaConsumo?: 'Ninguna' | 'Consumo Elevado' | 'Consumo Cero' | 'Lectura Menor';
   cota?: number; // Cota de altitud en m.s.n.m.
+  estadoServicio?: 'Activo' | 'Inactivo';
 }
 
 export interface RegistroProfundidadBomba {

@@ -96,6 +96,10 @@ export default function SimuladorPWA({
 
   // Simulate scanning QR/NFC
   const handleSimulateScan = (tipo: 'QR' | 'NFC', cliente: Cliente) => {
+    if (cliente.estadoServicio === 'Inactivo') {
+      alert(`⚠️ El medidor ${cliente.medidorId} pertenece a un arranque con servicio INACTIVO/CERRADO. No se pueden registrar lecturas en terreno.`);
+      return;
+    }
     setScanType(tipo);
     setScannedFeedback(`¡Medidor ${cliente.medidorId} detectado con éxito mediante ${tipo}!`);
     setMetodoCaptura(tipo);
@@ -345,6 +349,7 @@ export default function SimuladorPWA({
                     {pwaFilteredClientes.map((c) => (
                       <button
                         key={c.id}
+                        disabled={c.estadoServicio === 'Inactivo'}
                         onClick={() => {
                           setSelectedClient(c);
                           setLecturaActualStr('');
@@ -355,17 +360,22 @@ export default function SimuladorPWA({
                           setMetodoCaptura('Manual');
                           setPwaScreen('formulario');
                         }}
-                        className="w-full text-left p-2.5 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/20 transition-all flex justify-between items-center"
+                        className={`w-full text-left p-2.5 bg-white border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/20 transition-all flex justify-between items-center ${
+                          c.estadoServicio === 'Inactivo' ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''
+                        }`}
                       >
                         <div>
                           <div className="flex items-center space-x-1.5">
                             <span className="font-mono text-[9px] font-bold text-slate-400">{c.id}</span>
                             <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1 rounded">{c.medidorId}</span>
+                            {c.estadoServicio === 'Inactivo' && (
+                              <span className="text-[8px] font-extrabold text-rose-700 bg-rose-50 border border-rose-100 px-1 rounded">INACTIVO</span>
+                            )}
                           </div>
-                          <span className="text-xs font-bold text-slate-900 block mt-0.5">{c.nombre}</span>
+                          <span className={`text-xs font-bold block mt-0.5 ${c.estadoServicio === 'Inactivo' ? 'line-through text-slate-400' : 'text-slate-900'}`}>{c.nombre}</span>
                           <span className="text-[10px] text-slate-500 block leading-tight">{c.direccion}</span>
                         </div>
-                        <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                        {c.estadoServicio !== 'Inactivo' && <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
                       </button>
                     ))}
 
@@ -453,14 +463,18 @@ export default function SimuladorPWA({
                         <button
                           key={idx}
                           onClick={() => handleSimulateScan(scanType, c)}
-                          className="w-full text-left p-2 bg-white hover:bg-sky-50 border border-slate-200 rounded-lg text-xxs flex justify-between items-center"
+                          className={`w-full text-left p-2 bg-white hover:bg-sky-50 border border-slate-200 rounded-lg text-xxs flex justify-between items-center ${
+                            c.estadoServicio === 'Inactivo' ? 'opacity-50' : ''
+                          }`}
                         >
                           <div>
-                            <span className="font-semibold text-slate-800">{c.nombre}</span>
+                            <span className={`font-semibold ${c.estadoServicio === 'Inactivo' ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                              {c.nombre} {c.estadoServicio === 'Inactivo' && '(Inactivo)'}
+                            </span>
                             <span className="text-slate-400 block">Medidor: {c.medidorId}</span>
                           </div>
-                          <span className="bg-sky-100 text-sky-800 font-mono font-bold px-1 py-0.5 rounded text-[9px]">
-                            {scanType === 'QR' ? 'Escanear QR' : 'Tocar NFC'}
+                          <span className={`${c.estadoServicio === 'Inactivo' ? 'bg-slate-100 text-slate-400' : 'bg-sky-100 text-sky-800'} font-mono font-bold px-1 py-0.5 rounded text-[9px]`}>
+                            {c.estadoServicio === 'Inactivo' ? 'Inactivo' : scanType === 'QR' ? 'Escanear QR' : 'Tocar NFC'}
                           </span>
                         </button>
                       ))}

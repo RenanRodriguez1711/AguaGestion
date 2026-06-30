@@ -8,7 +8,8 @@ import {
   Activity, AlertTriangle, Droplet, Filter, CheckCircle, Clock, Plus, Search, 
   Database, FileText, Check, MapPin, User, Ticket as TicketIcon, Sliders, 
   ChevronLeft, ChevronRight, AlertOctagon, TrendingUp, ShieldAlert, Settings, ArrowUpRight,
-  History, Wrench, ZapOff, Calendar, AlertCircle, Trash2, Edit, Gauge
+  History, Wrench, ZapOff, Calendar, AlertCircle, Trash2, Edit, Gauge,
+  Play, Power, FileEdit, RefreshCw
 } from 'lucide-react';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, 
@@ -102,12 +103,20 @@ export default function PanelAdministrativo({
     categoria: 'Residencial' as 'Residencial' | 'Comercial' | 'Industrial',
     medidorId: '',
     lecturaAnterior: 0,
-    cota: ''
+    cota: '',
+    estadoServicio: 'Activo' as 'Activo' | 'Inactivo'
   });
 
   // Edit Client Form State
   const [editingClient, setEditingClient] = useState<Cliente | null>(null);
   const [showEditClient, setShowEditClient] = useState(false);
+
+  // Edit Reading Form State
+  const [editingReadingClient, setEditingReadingClient] = useState<Cliente | null>(null);
+  const [showEditReading, setShowEditReading] = useState(false);
+  const [readingValue, setReadingValue] = useState<string>('');
+  const [readingEstado, setReadingEstado] = useState<'Leído' | 'Imposible de leer' | 'Pendiente'>('Leído');
+  const [readingCausa, setReadingCausa] = useState<string>('');
 
   // New Ticket Form State
   const [newTicket, setNewTicket] = useState({
@@ -747,7 +756,8 @@ export default function PanelAdministrativo({
       nfcUid: `04:${Math.floor(Math.random() * 255).toString(16).toUpperCase()}:2B:AA:89:FE:E0`,
       lecturaAnterior: Number(newClient.lecturaAnterior),
       estado: 'Pendiente',
-      cota: newClient.cota ? Number(newClient.cota) : undefined
+      cota: newClient.cota ? Number(newClient.cota) : undefined,
+      estadoServicio: newClient.estadoServicio
     };
 
     onUpdateClientes([clientToAdd, ...clientes]);
@@ -760,7 +770,8 @@ export default function PanelAdministrativo({
       categoria: 'Residencial',
       medidorId: '',
       lecturaAnterior: 0,
-      cota: ''
+      cota: '',
+      estadoServicio: 'Activo'
     });
   };
 
@@ -781,10 +792,102 @@ export default function PanelAdministrativo({
     setEditingClient(null);
   };
 
-  // Delete client handler
-  const handleDeleteClient = (clientId: string) => {
-    if (window.confirm(`¿Está seguro de que desea eliminar al cliente ${clientId}? Esta acción borrará su registro de catastro.`)) {
-      const updatedClientes = clientes.filter(c => c.id !== clientId);
+  // Toggle client service status (instead of delete, as requested by the user)
+  const handleToggleClientStatus = (clientId: string) => {
+    const client = clientes.find(c => c.id === clientId);
+    if (!client) return;
+
+    const currentStatus = client.estadoServicio || 'Activo';
+    const newStatus: 'Activo' | 'Inactivo' = currentStatus === 'Inactivo' ? 'Activo' : 'Inactivo';
+    const confirmMsg = newStatus === 'Inactivo'
+      ? `¿Está seguro de que desea suspender/cerrar el servicio del cliente ${client.nombre} (${client.id})? El arranque y sus datos de consumo se mantendrán por ley.`
+      : `¿Desea reactivar el servicio/arranque para el cliente ${client.nombre} (${client.id})?`;
+
+    if (window.confirm(confirmMsg)) {
+      const updatedClientes = clientes.map(c => {
+        if (c.id === clientId) {
+          return { ...c, estadoServicio: newStatus } as Cliente;
+        }
+        return c;
+      });
+      onUpdateClientes(updatedClientes);
+    }
+  };
+
+  // Manual Reading Editor handler
+  const handleEditReadingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReadingClient) return;
+
+    const updatedClientes = clientes.map(c => {
+      if (c.id === editingReadingClient.id) {
+        if (readingEstado === 'Pendiente') {
+          return {
+            ...c,
+            lecturaActual: undefined,
+            consumoCalculado: undefined,
+            estado: 'Pendiente' as const,
+            fechaLectura: undefined,
+            alertaConsumo: 'Ninguna' as const,
+            causaNoLectura: undefined
+          } as Cliente;
+        } else if (readingEstado === 'Imposible de leer') {
+          return {
+            ...c,
+            lecturaActual: undefined,
+            consumoCalculado: undefined,
+            estado: 'Imposible de leer' as const,
+            causaNoLectura: readingCausa || 'No especificada',
+            fechaLectura: new Date().toISOString(),
+            alertaConsumo: 'Ninguna' as const
+          } as Cliente;
+        } else {
+          const val = Number(readingValue);
+          const consumo = Math.round((val - c.lecturaAnterior) * 10) / 10;
+          let alertaConsumo: 'Ninguna' | 'Consumo Elevado' | 'Consumo Cero' | 'Lectura Menor' = 'Ninguna';
+          if (consumo > 40) alertaConsumo = 'Consumo Elevado';
+          else if (consumo === 0) alertaConsumo = 'Consumo Cero';
+          else if (consumo < 0) alertaConsumo = 'Lectura Menor';
+
+          return {
+            ...c,
+            lecturaActual: val,
+            consumoCalculado: consumo,
+            estado: 'Leído' as const,
+            causaNoLectura: undefined,
+            fechaLectura: new Date().toISOString(),
+            alertaConsumo
+          } as Cliente;
+        }
+      }
+      return c;
+    });
+
+    onUpdateClientes(updatedClientes);
+    setShowEditReading(false);
+    setEditingReadingClient(null);
+  };
+
+  // Reset Reading to Pendiente
+  const handleResetReading = (clientId: string) => {
+    const client = clientes.find(c => c.id === clientId);
+    if (!client) return;
+
+    if (window.confirm(`¿Está seguro de que desea eliminar/resetear la lectura de este mes para ${client.nombre}? El registro volverá a quedar "Pendiente".`)) {
+      const updatedClientes = clientes.map(c => {
+        if (c.id === clientId) {
+          return {
+            ...c,
+            lecturaActual: undefined,
+            consumoCalculado: undefined,
+            estado: 'Pendiente' as const,
+            causaNoLectura: undefined,
+            fechaLectura: undefined,
+            alertaConsumo: 'Ninguna' as const
+          };
+        }
+        return c;
+      });
       onUpdateClientes(updatedClientes);
     }
   };
@@ -1738,10 +1841,24 @@ export default function PanelAdministrativo({
                   <p className="text-xs text-slate-500 mt-0.5">
                     {tablasControl.find(t => t.id === selectedTableId)?.descripcion}
                   </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xxs text-slate-500 font-mono">
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                      <strong>Responsable:</strong> {tablasControl.find(t => t.id === selectedTableId)?.responsable}
+                    </span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                      <strong>Frecuencia:</strong> {tablasControl.find(t => t.id === selectedTableId)?.frecuenciaActualizacion}
+                    </span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                      <strong>Último Guardado:</strong> {tablasControl.find(t => t.id === selectedTableId)?.ultimaActualizacion}
+                    </span>
+                    <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
+                      <strong>Próximo Vencimiento:</strong> {tablasControl.find(t => t.id === selectedTableId)?.proximaActualizacionRequerida}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {selectedTableId === 'TAB-002' && ( // Meter readings / clients
+                  {(selectedTableId === 'TAB-001' || selectedTableId === 'TAB-002') && ( // Meter readings / clients
                     <>
                       {/* Filters */}
                       <div className="relative">
@@ -1822,7 +1939,7 @@ export default function PanelAdministrativo({
               <div className="overflow-x-auto">
                 
                 {/* 1. Clientes y Medidores Table */}
-                {selectedTableId === 'TAB-002' && (
+                {(selectedTableId === 'TAB-001' || selectedTableId === 'TAB-002') && (
                   <div className="min-w-full">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
@@ -1833,28 +1950,37 @@ export default function PanelAdministrativo({
                           <th className="py-3 px-4">Sector</th>
                           <th className="py-3 px-4">Tipo</th>
                           <th className="py-3 px-4">Medidor (NFC/QR)</th>
-                          <th className="py-3 px-4 text-right">Lectura Anterior (m³)</th>
-                          <th className="py-3 px-4 text-right">Lectura Actual (m³)</th>
-                          <th className="py-3 px-4 text-right">Consumo (m³)</th>
+                          {selectedTableId === 'TAB-002' && (
+                            <>
+                              <th className="py-3 px-4 text-right">Lectura Anterior (m³)</th>
+                              <th className="py-3 px-4 text-right">Lectura Actual (m³)</th>
+                              <th className="py-3 px-4 text-right">Consumo (m³)</th>
+                            </>
+                          )}
                           <th className="py-3 px-4 text-center">Estado</th>
-                          <th className="py-3 px-4">Detalle / Alerta</th>
+                          {selectedTableId === 'TAB-002' && <th className="py-3 px-4">Detalle / Alerta</th>}
                           <th className="py-3 px-4 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {paginatedClientes.length === 0 ? (
                           <tr>
-                            <td colSpan={12} className="py-8 text-center text-slate-400">
+                            <td colSpan={selectedTableId === 'TAB-002' ? 12 : 8} className="py-8 text-center text-slate-400">
                               Ningún cliente coincide con los filtros aplicados.
                             </td>
                           </tr>
                         ) : (
                           paginatedClientes.map((c) => (
-                            <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                            <tr key={c.id} className={`hover:bg-slate-50/50 transition-colors ${c.estadoServicio === 'Inactivo' ? 'bg-slate-50/50' : ''}`}>
                               <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{c.id}</td>
                               <td className="py-3.5 px-4">
-                                <span className="font-semibold text-slate-950 block">{c.nombre}</span>
-                                <span className="text-xxs text-slate-500 block">{c.direccion}</span>
+                                <div className="flex items-center space-x-2">
+                                  <span className={`font-semibold text-slate-950 block ${c.estadoServicio === 'Inactivo' ? 'line-through text-slate-400 font-medium' : ''}`}>{c.nombre}</span>
+                                  {c.estadoServicio === 'Inactivo' && (
+                                    <span className="bg-rose-50 border border-rose-100 text-rose-700 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase shrink-0">Inactivo</span>
+                                  )}
+                                </div>
+                                <span className={`text-xxs block ${c.estadoServicio === 'Inactivo' ? 'text-slate-400' : 'text-slate-500'}`}>{c.direccion}</span>
                               </td>
                               <td className="py-3.5 px-4 font-mono text-slate-700 font-medium">
                                 {c.cota !== undefined ? `${c.cota} m` : '—'}
@@ -1873,19 +1999,23 @@ export default function PanelAdministrativo({
                                 <span className="font-semibold block font-mono text-slate-800">{c.medidorId}</span>
                                 <span className="text-slate-400 text-xxs block font-mono leading-none">NFC: {c.nfcUid.split(':').slice(0,3).join(':')}...</span>
                               </td>
-                              <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-600">
-                                {c.lecturaAnterior.toFixed(1)}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
-                                {c.lecturaActual !== undefined ? c.lecturaActual.toFixed(1) : '-'}
-                              </td>
-                              <td className="py-3.5 px-4 text-right font-mono font-bold">
-                                {c.consumoCalculado !== undefined ? (
-                                  <span className={c.consumoCalculado < 0 ? 'text-red-500' : 'text-sky-600'}>
-                                    {c.consumoCalculado > 0 ? `+${c.consumoCalculado.toFixed(1)}` : c.consumoCalculado.toFixed(1)}
-                                  </span>
-                                ) : '-'}
-                              </td>
+                              {selectedTableId === 'TAB-002' && (
+                                <>
+                                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-600">
+                                    {c.lecturaAnterior.toFixed(1)}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">
+                                    {c.lecturaActual !== undefined ? c.lecturaActual.toFixed(1) : '-'}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right font-mono font-bold">
+                                    {c.consumoCalculado !== undefined ? (
+                                      <span className={c.consumoCalculado < 0 ? 'text-red-500' : 'text-sky-600'}>
+                                        {c.consumoCalculado > 0 ? `+${c.consumoCalculado.toFixed(1)}` : c.consumoCalculado.toFixed(1)}
+                                      </span>
+                                    ) : '-'}
+                                  </td>
+                                </>
+                              )}
                               <td className="py-3.5 px-4 text-center">
                                 <span className={`text-xxs px-2 py-0.5 rounded-full font-bold inline-block border ${
                                   c.estado === 'Leído' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
@@ -1895,44 +2025,83 @@ export default function PanelAdministrativo({
                                   {c.estado}
                                 </span>
                               </td>
-                              <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">
-                                {c.estado === 'Imposible de leer' ? (
-                                  <span className="text-red-600 font-medium flex items-center space-x-1">
-                                    <AlertOctagon className="h-3 w-3 shrink-0" />
-                                    <span>{c.causaNoLectura}</span>
-                                  </span>
-                                ) : c.alertaConsumo && c.alertaConsumo !== 'Ninguna' ? (
-                                  <span className={`font-semibold px-1.5 py-0.5 rounded text-xxs flex items-center space-x-1 w-max ${
-                                    c.alertaConsumo === 'Consumo Elevado' ? 'bg-red-100 text-red-800' :
-                                    c.alertaConsumo === 'Consumo Cero' ? 'bg-amber-100 text-amber-800' :
-                                    'bg-indigo-100 text-indigo-800'
-                                  }`}>
-                                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                                    <span>{c.alertaConsumo}</span>
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 text-xxs font-mono">{c.fechaLectura ? c.fechaLectura.replace('T', ' ').slice(0, 16) : '-'}</span>
-                                )}
-                              </td>
+                              {selectedTableId === 'TAB-002' && (
+                                <td className="py-3.5 px-4 text-slate-500 max-w-xs truncate">
+                                  {c.estado === 'Imposible de leer' ? (
+                                    <span className="text-red-600 font-medium flex items-center space-x-1">
+                                      <AlertOctagon className="h-3 w-3 shrink-0" />
+                                      <span>{c.causaNoLectura}</span>
+                                    </span>
+                                  ) : c.alertaConsumo && c.alertaConsumo !== 'Ninguna' ? (
+                                    <span className={`font-semibold px-1.5 py-0.5 rounded text-xxs flex items-center space-x-1 w-max ${
+                                      c.alertaConsumo === 'Consumo Elevado' ? 'bg-red-100 text-red-800' :
+                                      c.alertaConsumo === 'Consumo Cero' ? 'bg-amber-100 text-amber-800' :
+                                      'bg-indigo-100 text-indigo-800'
+                                    }`}>
+                                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                                      <span>{c.alertaConsumo}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-xxs font-mono">{c.fechaLectura ? c.fechaLectura.replace('T', ' ').slice(0, 16) : '-'}</span>
+                                  )}
+                                </td>
+                              )}
                               <td className="py-3.5 px-4 text-center">
                                 <div className="flex items-center justify-center space-x-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setEditingClient({ ...c });
-                                      setShowEditClient(true);
-                                    }}
-                                    className="p-1 hover:bg-sky-50 text-sky-600 hover:text-sky-800 rounded transition-colors"
-                                    title="Editar Cliente"
-                                  >
-                                    <Edit className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteClient(c.id)}
-                                    className="p-1 hover:bg-rose-50 text-rose-600 hover:text-rose-800 rounded transition-colors"
-                                    title="Eliminar Cliente"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                                  {selectedTableId === 'TAB-001' ? (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setEditingClient({ ...c });
+                                          setShowEditClient(true);
+                                        }}
+                                        className="p-1 hover:bg-sky-50 text-sky-600 hover:text-sky-800 rounded transition-colors"
+                                        title="Editar Catastro del Cliente"
+                                      >
+                                        <Edit className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleToggleClientStatus(c.id)}
+                                        className={`p-1 rounded transition-colors ${
+                                          c.estadoServicio === 'Inactivo'
+                                            ? 'hover:bg-emerald-50 text-emerald-600 hover:text-emerald-800'
+                                            : 'hover:bg-rose-50 text-rose-600 hover:text-rose-800'
+                                        }`}
+                                        title={c.estadoServicio === 'Inactivo' ? 'Reactivar Servicio / Arranque' : 'Suspender Servicio / Desactivar Arranque'}
+                                      >
+                                        {c.estadoServicio === 'Inactivo' ? (
+                                          <Play className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <Power className="h-3.5 w-3.5" />
+                                        )}
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setEditingReadingClient({ ...c });
+                                          setReadingValue(c.lecturaActual !== undefined ? String(c.lecturaActual) : '');
+                                          setReadingEstado(c.estado);
+                                          setReadingCausa(c.causaNoLectura || '');
+                                          setShowEditReading(true);
+                                        }}
+                                        className="p-1 hover:bg-amber-50 text-amber-600 hover:text-amber-800 rounded transition-colors"
+                                        title="Ingresar / Editar Lectura de Consumo"
+                                      >
+                                        <FileEdit className="h-3.5 w-3.5" />
+                                      </button>
+                                      {c.estado !== 'Pendiente' && (
+                                        <button
+                                          onClick={() => handleResetReading(c.id)}
+                                          className="p-1 hover:bg-rose-50 text-rose-600 hover:text-rose-800 rounded transition-colors"
+                                          title="Resetear / Eliminar Lectura Actual"
+                                        >
+                                          <RefreshCw className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -2193,45 +2362,7 @@ export default function PanelAdministrativo({
                   </div>
                 )}
 
-                {/* 4. Tablas Control Metadata Table */}
-                {selectedTableId === 'TAB-001' && (
-                  <div className="min-w-full">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-mono font-bold text-xxs">
-                          <th className="py-3 px-4">Código</th>
-                          <th className="py-3 px-4">Nombre de Tabla</th>
-                          <th className="py-3 px-4">Descripción de Datos</th>
-                          <th className="py-3 px-4">Frecuencia Requerida</th>
-                          <th className="py-3 px-4">Último Guardado</th>
-                          <th className="py-3 px-4">Próxima Fecha Límite</th>
-                          <th className="py-3 px-4">Estado Alerta</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {tablasControl.map((t) => (
-                          <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-900">{t.id}</td>
-                            <td className="py-3.5 px-4 font-semibold text-slate-900">{t.nombreTabla}</td>
-                            <td className="py-3.5 px-4 text-slate-500 text-xxs max-w-sm whitespace-normal leading-normal">{t.descripcion}</td>
-                            <td className="py-3.5 px-4 font-semibold text-sky-700">{t.frecuenciaActualizacion}</td>
-                            <td className="py-3.5 px-4 font-mono text-slate-600">{t.ultimaActualizacion}</td>
-                            <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{t.proximaActualizacionRequerida}</td>
-                            <td className="py-3.5 px-4">
-                              <span className={`text-xxs px-2 py-0.5 rounded-full font-bold ${
-                                t.estadoFrecuencia === 'Al día' ? 'bg-emerald-100 text-emerald-800' :
-                                t.estadoFrecuencia === 'Próximo a vencer' ? 'bg-amber-100 text-amber-800' :
-                                'bg-rose-100 text-rose-800 font-bold animate-pulse'
-                              }`}>
-                                {t.estadoFrecuencia}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+
                 
                 {/* 5. Alcantarillado Table (not present but described as TAB-005) */}
                 {selectedTableId === 'TAB-005' && (
@@ -2897,20 +3028,7 @@ export default function PanelAdministrativo({
 
         {/* ===================== TAB: CONTROL DE PRESIONES ===================== */}
         {activeTab === 'presiones' && (() => {
-          // Calculate statistics
-          const totalPoints = puntosPresion.length;
-          const stationaryCount = puntosPresion.filter(p => p.tipo === 'Estacionario').length;
-          const mobileCount = puntosPresion.filter(p => p.tipo === 'Móvil').length;
-
-          const recentReadings = registrosPresion;
-          const avgPressure = recentReadings.length > 0
-            ? (recentReadings.reduce((acc, r) => acc + r.presionBar, 0) / recentReadings.length).toFixed(2)
-            : '0.00';
-
-          const lowPressureAlerts = recentReadings.filter(r => r.conformidad === 'Baja Presión').length;
-          const overPressureAlerts = recentReadings.filter(r => r.conformidad === 'Sobrepresión').length;
-
-          // Filter records
+          // Filter records first
           const filteredReadings = registrosPresion.filter(r => {
             const matchSearch = r.puntoNombre.toLowerCase().includes(presionSearch.toLowerCase()) ||
                                 r.operador.toLowerCase().includes(presionSearch.toLowerCase()) ||
@@ -2929,8 +3047,21 @@ export default function PanelAdministrativo({
             return matchSearch && matchType;
           });
 
-          // Chart data (sorted chronologically)
-          const chartData = [...registrosPresion]
+          // Calculate statistics based on filtered readings
+          const totalPoints = puntosPresion.length;
+          const stationaryCount = puntosPresion.filter(p => p.tipo === 'Estacionario').length;
+          const mobileCount = puntosPresion.filter(p => p.tipo === 'Móvil').length;
+
+          const recentReadings = filteredReadings;
+          const avgPressure = recentReadings.length > 0
+            ? (recentReadings.reduce((acc, r) => acc + r.presionBar, 0) / recentReadings.length).toFixed(2)
+            : '0.00';
+
+          const lowPressureAlerts = recentReadings.filter(r => r.conformidad === 'Baja Presión').length;
+          const overPressureAlerts = recentReadings.filter(r => r.conformidad === 'Sobrepresión').length;
+
+          // Chart data (sorted chronologically from filtered records)
+          const chartData = [...filteredReadings]
             .slice(0, 15)
             .reverse()
             .map(r => ({
@@ -3475,15 +3606,29 @@ export default function PanelAdministrativo({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
-                <input
-                  type="number"
-                  placeholder="Ej: 215"
-                  value={newClient.cota}
-                  onChange={(e) => setNewClient({...newClient, cota: e.target.value})}
-                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
+                  <input
+                    type="number"
+                    placeholder="Ej: 215"
+                    value={newClient.cota}
+                    onChange={(e) => setNewClient({...newClient, cota: e.target.value})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Estado de Servicio *</label>
+                  <select
+                    value={newClient.estadoServicio || 'Activo'}
+                    onChange={(e) => setNewClient({...newClient, estadoServicio: e.target.value as any})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                  >
+                    <option value="Activo">Activo (Habilitado)</option>
+                    <option value="Inactivo">Inactivo (Suspendido)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex space-x-2 pt-4">
@@ -3591,15 +3736,29 @@ export default function PanelAdministrativo({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
-                <input
-                  type="number"
-                  placeholder="Ej: 215"
-                  value={editingClient.cota || ''}
-                  onChange={(e) => setEditingClient({...editingClient, cota: e.target.value ? Number(e.target.value) : undefined})}
-                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
+                  <input
+                    type="number"
+                    placeholder="Ej: 215"
+                    value={editingClient.cota || ''}
+                    onChange={(e) => setEditingClient({...editingClient, cota: e.target.value ? Number(e.target.value) : undefined})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Estado de Servicio *</label>
+                  <select
+                    value={editingClient.estadoServicio || 'Activo'}
+                    onChange={(e) => setEditingClient({...editingClient, estadoServicio: e.target.value as 'Activo' | 'Inactivo'})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                  >
+                    <option value="Activo">Activo (Habilitado)</option>
+                    <option value="Inactivo">Inactivo (Suspendido)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex space-x-2 pt-4">
@@ -3618,6 +3777,112 @@ export default function PanelAdministrativo({
                   className="flex-1 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 py-2 rounded-lg"
                 >
                   Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT READING */}
+      {showEditReading && editingReadingClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" id="modal_edit_reading">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Registrar / Editar Lectura Mensual</h3>
+            <p className="text-xs text-slate-500 mb-4 font-medium">
+              Cliente: <span className="text-slate-800 font-bold">{editingReadingClient.nombre}</span> ({editingReadingClient.id})<br />
+              Medidor: <span className="text-slate-800 font-mono font-bold">{editingReadingClient.medidorId}</span>
+            </p>
+            
+            <form onSubmit={handleEditReadingSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Estado de la Lectura *</label>
+                <select
+                  value={readingEstado}
+                  onChange={(e) => setReadingEstado(e.target.value as any)}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                >
+                  <option value="Leído">Leído (Lectura Tomada Exitosamente)</option>
+                  <option value="Imposible de leer">Imposible de leer (Problema de Acceso / Falla)</option>
+                  <option value="Pendiente">Pendiente (Sin registrar aún)</option>
+                </select>
+              </div>
+
+              {readingEstado === 'Leído' && (
+                <>
+                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-slate-500 block">Lectura Anterior:</span>
+                      <span className="text-slate-900 font-mono font-bold text-sm">{editingReadingClient.lecturaAnterior.toFixed(1)} m³</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Consumo Estimado:</span>
+                      <span className="text-slate-900 font-mono font-bold text-sm">
+                        {readingValue ? `${Math.round((Number(readingValue) - editingReadingClient.lecturaAnterior) * 10) / 10} m³` : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Lectura Actual (m³) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.1"
+                      value={readingValue}
+                      onChange={(e) => setReadingValue(e.target.value)}
+                      placeholder="Ej: 124.5"
+                      className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                    />
+                    {Number(readingValue) < editingReadingClient.lecturaAnterior && readingValue !== '' && (
+                      <p className="text-xxs text-rose-600 font-semibold mt-1">
+                        ⚠️ Alerta: La lectura actual es menor que la lectura anterior. Esto generará un consumo negativo.
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {readingEstado === 'Imposible de leer' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Causa de No Lectura *</label>
+                  <select
+                    value={readingCausa}
+                    onChange={(e) => setReadingCausa(e.target.value)}
+                    required
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-xs"
+                  >
+                    <option value="">-- Seleccione Causa --</option>
+                    <option value="Predio Cerrado / Inaccesible">Predio Cerrado / Inaccesible</option>
+                    <option value="Medidor Obstruido / Tapado por Tierra o Escombros">Medidor Obstruido / Tapado</option>
+                    <option value="Vidrio Empañado / Sucio / Rayado">Vidrio Empañado / Sucio</option>
+                    <option value="Medidor Dañado o Pantalla Rota">Medidor Dañado o Pantalla Rota</option>
+                    <option value="Perro Agresivo en Predio">Perro Agresivo en Predio</option>
+                    <option value="Fuga de Agua Activa en Medidor">Fuga de Agua Activa en Medidor</option>
+                    <option value="Caja de Medidor Inundada">Caja de Medidor Inundada</option>
+                    <option value="Peligro en Zona / Orden Público">Peligro en Zona</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex space-x-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditReading(false);
+                    setEditingReadingClient(null);
+                  }}
+                  className="flex-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 py-2 rounded-lg border border-slate-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={readingEstado === 'Leído' && readingValue === ''}
+                  className="flex-1 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 py-2 rounded-lg disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  Guardar Lectura
                 </button>
               </div>
             </form>

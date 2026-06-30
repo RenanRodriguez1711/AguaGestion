@@ -121,7 +121,8 @@ export function generar1000Clientes(): Cliente[] {
       causaNoLectura,
       categoria,
       alertaConsumo,
-      cota
+      cota,
+      estadoServicio: 'Activo'
     });
   }
   
