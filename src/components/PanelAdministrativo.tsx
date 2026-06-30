@@ -101,8 +101,13 @@ export default function PanelAdministrativo({
     sector: 'Centro' as 'Norte' | 'Sur' | 'Centro' | 'Rural',
     categoria: 'Residencial' as 'Residencial' | 'Comercial' | 'Industrial',
     medidorId: '',
-    lecturaAnterior: 0
+    lecturaAnterior: 0,
+    cota: ''
   });
+
+  // Edit Client Form State
+  const [editingClient, setEditingClient] = useState<Cliente | null>(null);
+  const [showEditClient, setShowEditClient] = useState(false);
 
   // New Ticket Form State
   const [newTicket, setNewTicket] = useState({
@@ -742,6 +747,7 @@ export default function PanelAdministrativo({
       nfcUid: `04:${Math.floor(Math.random() * 255).toString(16).toUpperCase()}:2B:AA:89:FE:E0`,
       lecturaAnterior: Number(newClient.lecturaAnterior),
       estado: 'Pendiente',
+      cota: newClient.cota ? Number(newClient.cota) : undefined
     };
 
     onUpdateClientes([clientToAdd, ...clientes]);
@@ -753,8 +759,34 @@ export default function PanelAdministrativo({
       sector: 'Centro',
       categoria: 'Residencial',
       medidorId: '',
-      lecturaAnterior: 0
+      lecturaAnterior: 0,
+      cota: ''
     });
+  };
+
+  // Edit client handler
+  const handleEditClientSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient || !editingClient.nombre || !editingClient.medidorId) return;
+
+    const updatedClientes = clientes.map(c => {
+      if (c.id === editingClient.id) {
+        return editingClient;
+      }
+      return c;
+    });
+
+    onUpdateClientes(updatedClientes);
+    setShowEditClient(false);
+    setEditingClient(null);
+  };
+
+  // Delete client handler
+  const handleDeleteClient = (clientId: string) => {
+    if (window.confirm(`¿Está seguro de que desea eliminar al cliente ${clientId}? Esta acción borrará su registro de catastro.`)) {
+      const updatedClientes = clientes.filter(c => c.id !== clientId);
+      onUpdateClientes(updatedClientes);
+    }
   };
 
   // Add new ticket handler
@@ -1797,6 +1829,7 @@ export default function PanelAdministrativo({
                         <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-mono font-bold text-xxs">
                           <th className="py-3 px-4">Código Cliente</th>
                           <th className="py-3 px-4">Cliente / Dirección</th>
+                          <th className="py-3 px-4">Cota (m)</th>
                           <th className="py-3 px-4">Sector</th>
                           <th className="py-3 px-4">Tipo</th>
                           <th className="py-3 px-4">Medidor (NFC/QR)</th>
@@ -1805,12 +1838,13 @@ export default function PanelAdministrativo({
                           <th className="py-3 px-4 text-right">Consumo (m³)</th>
                           <th className="py-3 px-4 text-center">Estado</th>
                           <th className="py-3 px-4">Detalle / Alerta</th>
+                          <th className="py-3 px-4 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {paginatedClientes.length === 0 ? (
                           <tr>
-                            <td colSpan={10} className="py-8 text-center text-slate-400">
+                            <td colSpan={12} className="py-8 text-center text-slate-400">
                               Ningún cliente coincide con los filtros aplicados.
                             </td>
                           </tr>
@@ -1821,6 +1855,9 @@ export default function PanelAdministrativo({
                               <td className="py-3.5 px-4">
                                 <span className="font-semibold text-slate-950 block">{c.nombre}</span>
                                 <span className="text-xxs text-slate-500 block">{c.direccion}</span>
+                              </td>
+                              <td className="py-3.5 px-4 font-mono text-slate-700 font-medium">
+                                {c.cota !== undefined ? `${c.cota} m` : '—'}
                               </td>
                               <td className="py-3.5 px-4 font-medium text-slate-600">{c.sector}</td>
                               <td className="py-3.5 px-4">
@@ -1876,6 +1913,27 @@ export default function PanelAdministrativo({
                                 ) : (
                                   <span className="text-slate-400 text-xxs font-mono">{c.fechaLectura ? c.fechaLectura.replace('T', ' ').slice(0, 16) : '-'}</span>
                                 )}
+                              </td>
+                              <td className="py-3.5 px-4 text-center">
+                                <div className="flex items-center justify-center space-x-1.5">
+                                  <button
+                                    onClick={() => {
+                                      setEditingClient({ ...c });
+                                      setShowEditClient(true);
+                                    }}
+                                    className="p-1 hover:bg-sky-50 text-sky-600 hover:text-sky-800 rounded transition-colors"
+                                    title="Editar Cliente"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteClient(c.id)}
+                                    className="p-1 hover:bg-rose-50 text-rose-600 hover:text-rose-800 rounded transition-colors"
+                                    title="Eliminar Cliente"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -3417,6 +3475,17 @@ export default function PanelAdministrativo({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
+                <input
+                  type="number"
+                  placeholder="Ej: 215"
+                  value={newClient.cota}
+                  onChange={(e) => setNewClient({...newClient, cota: e.target.value})}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                />
+              </div>
+
               <div className="flex space-x-2 pt-4">
                 <button
                   type="button"
@@ -3430,6 +3499,125 @@ export default function PanelAdministrativo({
                   className="flex-1 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 py-2 rounded-lg"
                 >
                   Guardar Cliente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT CLIENT */}
+      {showEditClient && editingClient && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" id="modal_edit_client">
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Editar Catastro de Cliente: {editingClient.id}</h3>
+            
+            <form onSubmit={handleEditClientSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingClient.nombre}
+                  onChange={(e) => setEditingClient({...editingClient, nombre: e.target.value})}
+                  placeholder="Ej: Marcelo Castro Tapia"
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Dirección Domiciliaria</label>
+                <input
+                  type="text"
+                  value={editingClient.direccion}
+                  onChange={(e) => setEditingClient({...editingClient, direccion: e.target.value})}
+                  placeholder="Ej: Av. Las Rosas #440"
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Sector *</label>
+                  <select
+                    value={editingClient.sector}
+                    onChange={(e) => setEditingClient({...editingClient, sector: e.target.value as any})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                  >
+                    <option value="Norte">Sector Norte</option>
+                    <option value="Centro">Sector Centro</option>
+                    <option value="Sur">Sector Sur</option>
+                    <option value="Rural">Sector Rural</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Categoría Tarifaria *</label>
+                  <select
+                    value={editingClient.categoria}
+                    onChange={(e) => setEditingClient({...editingClient, categoria: e.target.value as any})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white"
+                  >
+                    <option value="Residencial">Residencial</option>
+                    <option value="Comercial">Comercial</option>
+                    <option value="Industrial">Industrial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Código Medidor *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ej: MED-99381"
+                    value={editingClient.medidorId}
+                    onChange={(e) => setEditingClient({...editingClient, medidorId: e.target.value.toUpperCase()})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Lectura Anterior (m³)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={editingClient.lecturaAnterior}
+                    onChange={(e) => setEditingClient({...editingClient, lecturaAnterior: Number(e.target.value)})}
+                    className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Cota de Altitud (m.s.n.m.)</label>
+                <input
+                  type="number"
+                  placeholder="Ej: 215"
+                  value={editingClient.cota || ''}
+                  onChange={(e) => setEditingClient({...editingClient, cota: e.target.value ? Number(e.target.value) : undefined})}
+                  className="w-full text-xs p-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white font-mono"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditClient(false);
+                    setEditingClient(null);
+                  }}
+                  className="flex-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 py-2 rounded-lg border border-slate-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 py-2 rounded-lg"
+                >
+                  Guardar Cambios
                 </button>
               </div>
             </form>
