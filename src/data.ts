@@ -103,6 +103,8 @@ export function generar1000Clientes(): Cliente[] {
       }
     }
     
+    const cota = Math.round(150 + (i * 0.45) % 150);
+    
     listado.push({
       id: `CLI-${String(i).padStart(4, '0')}`,
       nombre: nombreCompleto,
@@ -118,7 +120,8 @@ export function generar1000Clientes(): Cliente[] {
       estado,
       causaNoLectura,
       categoria,
-      alertaConsumo
+      alertaConsumo,
+      cota
     });
   }
   
