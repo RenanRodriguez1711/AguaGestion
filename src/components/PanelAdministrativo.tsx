@@ -15,6 +15,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, 
   PieChart, Pie, Cell, AreaChart, Area 
 } from 'recharts';
+import MapaGeorreferenciado from './MapaGeorreferenciado';
 
 interface PanelAdministrativoProps {
   clientes: Cliente[];
@@ -54,7 +55,7 @@ export default function PanelAdministrativo({
   onUpdateRegistrosPresion
 }: PanelAdministrativoProps) {
   // Navigation inside administrative panel
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tablas' | 'tickets' | 'calidad' | 'continuidad' | 'presiones'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tablas' | 'tickets' | 'calidad' | 'continuidad' | 'presiones' | 'mapa'>('resumen');
   
   // Table selected inside tables tab
   const [selectedTableId, setSelectedTableId] = useState<string>('TAB-002'); // Lecturas Medidores
@@ -1185,6 +1186,20 @@ export default function PanelAdministrativo({
             <Gauge className="h-4 w-4" />
             <span>Control de Presiones</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('mapa')}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs font-medium transition-all text-left ${
+              activeTab === 'mapa'
+                ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            }`}
+            id="tab_btn_sidebar_mapa"
+          >
+            <MapPin className="h-4 w-4 text-sky-400" />
+            <span className="flex-1">Mapeo GIS & Calor</span>
+            <span className="bg-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono">1K+ GPS</span>
+          </button>
         </nav>
         
         <div className="p-4 border-t border-slate-800 mt-auto">
@@ -1326,6 +1341,19 @@ export default function PanelAdministrativo({
           <Gauge className="h-4 w-4" />
           <span>Control de Presiones</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('mapa')}
+          className={`py-3 px-4 font-medium text-sm border-b-2 transition-all flex items-center space-x-2 whitespace-nowrap ${
+            activeTab === 'mapa' 
+              ? 'border-blue-600 text-blue-600 bg-blue-50/50' 
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+          }`}
+          id="tab_btn_mobile_mapa"
+        >
+          <MapPin className="h-4 w-4 text-sky-500" />
+          <span>Mapeo GIS & Calor</span>
+        </button>
       </div>
 
       {/* Main Content Area */}
@@ -1442,17 +1470,43 @@ export default function PanelAdministrativo({
                     <Sliders className="h-5 w-5 text-sky-600" />
                     <span>Consumo por Categoría Tarifaria</span>
                   </h3>
-                  <div className="h-48 flex justify-center items-center relative">
+                  <div className="h-48 flex justify-center items-center relative w-full">
+                    <div className="absolute flex flex-col justify-center items-center text-center pointer-events-none z-10 bg-white/80 backdrop-blur-[1px] p-3 rounded-full">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Consumo Total</span>
+                      <span className="text-xl font-black text-slate-900 font-mono leading-none mt-1">
+                        {metrics.totalConsumido.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 mt-0.5">m³</span>
+                    </div>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={categoryData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
+                          innerRadius={55}
+                          outerRadius={75}
                           paddingAngle={3}
                           dataKey="value"
+                          label={({ cx, cy, midAngle, outerRadius, percent }) => {
+                            const RADIAN = Math.PI / 180;
+                            const radius = outerRadius + 12;
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                            return (
+                              <text
+                                x={x}
+                                y={y}
+                                fill="#0f172a"
+                                textAnchor={x > cx ? 'start' : 'end'}
+                                dominantBaseline="central"
+                                className="text-[10px] font-extrabold font-mono"
+                              >
+                                {`${(percent * 100).toFixed(0)}%`}
+                              </text>
+                            );
+                          }}
+                          labelLine={{ stroke: '#64748b', strokeWidth: 1 }}
                         >
                           {categoryData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -1461,12 +1515,6 @@ export default function PanelAdministrativo({
                         <Tooltip formatter={(value) => [`${value} m³`]} />
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute flex flex-col justify-center items-center text-center">
-                      <span className="text-xxs text-slate-400 uppercase">Consumo Total</span>
-                      <span className="text-xl font-bold text-slate-950 font-mono">
-                        {metrics.totalConsumido.toLocaleString()} m³
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -3518,6 +3566,18 @@ export default function PanelAdministrativo({
             </div>
           );
         })()}
+
+        {activeTab === 'mapa' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <MapaGeorreferenciado
+              clientes={clientes}
+              pozos={pozos}
+              puntosPresion={puntosPresion || []}
+              tickets={tickets}
+              interrupciones={interrupciones}
+            />
+          </div>
+        )}
 
       </main>
 

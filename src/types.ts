@@ -16,6 +16,8 @@ export interface Cliente {
   alertaConsumo?: 'Ninguna' | 'Consumo Elevado' | 'Consumo Cero' | 'Lectura Menor';
   cota?: number; // Cota de altitud en m.s.n.m.
   estadoServicio?: 'Activo' | 'Inactivo';
+  lat?: number;
+  lng?: number;
 }
 
 export interface RegistroProfundidadBomba {
@@ -41,6 +43,8 @@ export interface Pozo {
   fechaNiveles?: string; // ultima fecha en que se registraron los niveles
   profundidadBomba?: number; // en metros
   historialProfundidadBomba?: RegistroProfundidadBomba[]; // historial de cambios
+  lat?: number;
+  lng?: number;
 }
 
 export interface TablaControl {
@@ -146,6 +150,8 @@ export interface PuntoMedicionPresion {
   instrumento?: string; // Tipo de instrumento de medición de presión estacionario
   ultimaMantencion?: string; // Fecha de última mantención del equipo de medición de presión (solo estacionario)
   estado: 'Operativo' | 'En Calibración' | 'Inactivo';
+  lat?: number;
+  lng?: number;
 }
 
 export interface RegistroPresion {

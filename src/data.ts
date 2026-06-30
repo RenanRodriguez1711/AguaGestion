@@ -104,6 +104,8 @@ export function generar1000Clientes(): Cliente[] {
     }
     
     const cota = Math.round(150 + (i * 0.45) % 150);
+    const lat = -33.7250 + ((i * 17) % 100) * 0.0004 - 0.02;
+    const lng = -70.8640 + ((i * 31) % 100) * 0.0005 - 0.025;
     
     listado.push({
       id: `CLI-${String(i).padStart(4, '0')}`,
@@ -122,7 +124,9 @@ export function generar1000Clientes(): Cliente[] {
       categoria,
       alertaConsumo,
       cota,
-      estadoServicio: 'Activo'
+      estadoServicio: 'Activo',
+      lat,
+      lng
     });
   }
   
@@ -148,7 +152,9 @@ export const INITIAL_POZOS: Pozo[] = [
     profundidadBomba: 45.0,
     historialProfundidadBomba: [
       { fecha: '2025-03-10', profundidadAnterior: 40.0, profundidadNueva: 45.0, motivo: 'Ajuste estacional por descenso del acuífero' }
-    ]
+    ],
+    lat: -33.7080,
+    lng: -70.8520
   },
   {
     id: 'POZ-002',
@@ -165,7 +171,9 @@ export const INITIAL_POZOS: Pozo[] = [
     nivelFreatico: 45.8,
     fechaNiveles: '2026-06-12', // ~17 days ago (overdue, > 15 days!)
     profundidadBomba: 60.0,
-    historialProfundidadBomba: []
+    historialProfundidadBomba: [],
+    lat: -33.7250,
+    lng: -70.8640
   },
   {
     id: 'POZ-003',
@@ -183,8 +191,10 @@ export const INITIAL_POZOS: Pozo[] = [
     fechaNiveles: '2026-06-25', // ~4 days ago
     profundidadBomba: 35.0,
     historialProfundidadBomba: [
-      { fecha: '2026-02-14', profundidadAnterior: 30.0, profundidadNueva: 35.0, motivo: 'Reemplazo de bomba dañada y optimización' }
-    ]
+      { fecha: '2026-02-14', profundidadAnterior: 30.0, profundidadNueva: 35.0, motivo: 'Reemplazo de bomba dañada and optimización' }
+    ],
+    lat: -33.7420,
+    lng: -70.8850
   }
 ];
 
@@ -443,7 +453,9 @@ export const INITIAL_PUNTOS_PRESION: PuntoMedicionPresion[] = [
     cota: 185,
     instrumento: 'Sensor Transmisor Wika A-10',
     ultimaMantencion: '2026-04-10',
-    estado: 'Operativo'
+    estado: 'Operativo',
+    lat: -33.7230,
+    lng: -70.8610
   },
   {
     id: 'PMP-EST-002',
@@ -453,7 +465,9 @@ export const INITIAL_PUNTOS_PRESION: PuntoMedicionPresion[] = [
     cota: 210,
     instrumento: 'Datalogger Keller Leo 5',
     ultimaMantencion: '2026-05-18',
-    estado: 'Operativo'
+    estado: 'Operativo',
+    lat: -33.7120,
+    lng: -70.8550
   },
   {
     id: 'PMP-EST-003',
@@ -463,21 +477,27 @@ export const INITIAL_PUNTOS_PRESION: PuntoMedicionPresion[] = [
     cota: 275,
     instrumento: 'Manómetro de Carátula Ashcroft',
     ultimaMantencion: '2025-11-05',
-    estado: 'Operativo'
+    estado: 'Operativo',
+    lat: -33.7460,
+    lng: -70.8810
   },
   {
     id: 'PMP-MOV-001',
     nombre: 'Punto de Control Móvil - Sector Sur (Grifo Condell)',
     tipo: 'Móvil',
     direccion: 'Calle Condell / Esquina Prat',
-    estado: 'Operativo'
+    estado: 'Operativo',
+    lat: -33.7310,
+    lng: -70.8690
   },
   {
     id: 'PMP-MOV-002',
     nombre: 'Punto de Control Móvil - Calle Las Rosas #550',
     tipo: 'Móvil',
     direccion: 'Calle Las Rosas #550',
-    estado: 'Operativo'
+    estado: 'Operativo',
+    lat: -33.7200,
+    lng: -70.8710
   }
 ];
 
