@@ -14,6 +14,7 @@ export interface Cliente {
   causaNoLectura?: string;
   categoria: 'Residencial' | 'Comercial' | 'Industrial';
   alertaConsumo?: 'Ninguna' | 'Consumo Elevado' | 'Consumo Cero' | 'Lectura Menor';
+  cota?: number; // Cota de altitud en m.s.n.m.
 }
 
 export interface RegistroProfundidadBomba {
